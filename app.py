@@ -27,9 +27,16 @@ autoconsumo = st.sidebar.slider("Autoconsumo (%)", 0, 100, 20) / 100
 
 # Financeiro
 st.sidebar.subheader("💰 Financeiro")
-parcela = st.sidebar.number_input("Parcela (R$/mês)", value=750.0, step=50.0)
+valor_sistema = st.sidebar.number_input("Valor do sistema (R$)", value=28000.0, step=1000.0, help="Valor total do sistema solar")
+entrada = st.sidebar.number_input("Entrada (R$)", value=0.0, step=1000.0, help="Valor pago à vista no início")
+taxa_juros_mensal = st.sidebar.slider("Taxa de juros (% a.m.)", 0.0, 5.0, 0.80, step=0.05, help="Taxa de juros mensal do financiamento") / 100
 meses_financ = st.sidebar.slider("Financiamento (meses)", 12, 180, 72, step=6)
 manutencao = st.sidebar.number_input("Manutenção anual (R$)", value=750.0, step=50.0)
+
+# Mostrar valores calculados
+valor_financiado = valor_sistema - entrada
+taxa_juros_anual = ((1 + taxa_juros_mensal) ** 12 - 1)
+st.sidebar.info(f"💵 **Valor financiado:** R$ {valor_financiado:,.2f}  \n📊 **Taxa anual equivalente:** {taxa_juros_anual*100:.2f}% a.a.")
 
 # Simulação
 st.sidebar.subheader("📊 Simulação")
@@ -48,7 +55,9 @@ if st.sidebar.button("🚀 Simular", type="primary", use_container_width=True):
             geracao_mensal_media=geracao,
             consumo_mensal=consumo,
             perc_autoconsumo=autoconsumo,
-            valor_parcela=parcela,
+            valor_sistema=valor_sistema,
+            entrada=entrada,
+            taxa_juros_anual=taxa_juros_anual,
             meses_financiamento=meses_financ,
             anos_simulacao=anos,
             reajuste_anual=reajuste,
@@ -57,17 +66,53 @@ if st.sidebar.button("🚀 Simular", type="primary", use_container_width=True):
             usar_sazonalidade=sazonalidade
         )
 
+        # Calcular parcela para exibição
+        from main import calcular_parcela_price
+        parcela_calculada = calcular_parcela_price(valor_financiado, taxa_juros_mensal, meses_financ) if valor_financiado > 0 else 0
+
         # Armazenar no session state
         st.session_state['df'] = df
         st.session_state['meses_financ'] = meses_financ
+        st.session_state['entrada'] = entrada
+        st.session_state['valor_sistema'] = valor_sistema
+        st.session_state['parcela'] = parcela_calculada
+        st.session_state['valor_financiado'] = valor_financiado
+        st.session_state['taxa_juros_mensal'] = taxa_juros_mensal
+        st.session_state['taxa_juros_anual'] = taxa_juros_anual
 
 # Mostrar resultados se existirem
 if 'df' in st.session_state:
     df = st.session_state['df']
     meses_financ = st.session_state['meses_financ']
+    entrada = st.session_state.get('entrada', 0)
+    valor_sistema = st.session_state.get('valor_sistema', 28000)
+    parcela = st.session_state.get('parcela', 0)
+    valor_financiado = st.session_state.get('valor_financiado', 0)
+    taxa_juros_mensal = st.session_state.get('taxa_juros_mensal', 0.008)
+    taxa_juros_anual = st.session_state.get('taxa_juros_anual', 0.10)
 
     # Métricas principais
     st.header("📊 Resumo Executivo")
+
+    # Informações do financiamento
+    if valor_financiado > 0:
+        col_f1, col_f2, col_f3, col_f4 = st.columns(4)
+        with col_f1:
+            st.metric("Valor do Sistema", f"R$ {valor_sistema:,.2f}")
+        with col_f2:
+            st.metric("Entrada", f"R$ {entrada:,.2f}")
+        with col_f3:
+            st.metric("Parcela Calculada", f"R$ {parcela:,.2f}/mês",
+                     help=f"{meses_financ}x de R$ {parcela:,.2f} (juros {taxa_juros_mensal*100:.2f}% a.m.)")
+        with col_f4:
+            total_pago_financ = entrada + (parcela * meses_financ)
+            juros_pagos = total_pago_financ - valor_sistema
+            st.metric("Total a Pagar", f"R$ {total_pago_financ:,.2f}",
+                     delta=f"+R$ {juros_pagos:,.2f} ({juros_pagos/valor_sistema*100:.1f}% de juros)",
+                     delta_color="inverse")
+        st.divider()
+
+    # Primeira linha de métricas
     col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
@@ -101,24 +146,75 @@ if 'df' in st.session_state:
             f"R$ {df['Compra rede (R$)'].sum():,.2f}"
         )
 
+    # Análise da entrada (se houver)
+    if entrada > 0:
+        st.subheader("💵 Análise da Entrada")
+        col_a, col_b, col_c = st.columns(3)
+
+        with col_a:
+            st.metric(
+                "Entrada Paga",
+                f"R$ {entrada:,.2f}"
+            )
+
+        with col_b:
+            # Encontrar quando recupera a entrada
+            df_positivo_entrada = df[df['Acumulado com entrada (R$)'] > 0]
+            if not df_positivo_entrada.empty:
+                mes_recupera = df_positivo_entrada.iloc[0]['Mês']
+                anos_recupera = mes_recupera // 12
+                meses_resto = mes_recupera % 12
+                st.metric(
+                    "Payback da Entrada",
+                    f"{anos_recupera}a {meses_resto}m",
+                    delta=f"Mês {mes_recupera}",
+                    help="Tempo para recuperar o valor da entrada"
+                )
+            else:
+                st.metric(
+                    "Payback da Entrada",
+                    "Não recuperado",
+                    delta="No período simulado"
+                )
+
+        with col_c:
+            # Comparar com e sem entrada
+            acum_final_com_entrada = df['Acumulado com entrada (R$)'].iloc[-1]
+            st.metric(
+                "Saldo Final (com entrada)",
+                f"R$ {acum_final_com_entrada:,.2f}",
+                delta=f"R$ {acum_final_com_entrada - df['Acumulado (R$)'].iloc[-1]:,.2f}",
+                help="Fluxo acumulado descontando a entrada"
+            )
+
     # Gráfico principal
     st.header("📈 Fluxo Líquido Acumulado")
 
     fig = go.Figure()
 
-    # Linha principal
+    # Linha principal (sem entrada)
     fig.add_trace(go.Scatter(
         x=df['Mês'],
         y=df['Acumulado (R$)'],
         mode='lines',
-        name='Acumulado',
+        name='Acumulado (sem entrada)',
         line=dict(color='#2ecc71', width=3),
         fill='tozeroy',
         fillcolor='rgba(46, 204, 113, 0.2)'
     ))
 
+    # Linha com entrada (se houver)
+    if entrada > 0:
+        fig.add_trace(go.Scatter(
+            x=df['Mês'],
+            y=df['Acumulado com entrada (R$)'],
+            mode='lines',
+            name='Acumulado (com entrada)',
+            line=dict(color='#e74c3c', width=2, dash='dot')
+        ))
+
     # Linha zero
-    fig.add_hline(y=0, line_dash="dash", line_color="red", opacity=0.5)
+    fig.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
 
     # Linha de fim do financiamento
     if meses_financ < len(df):

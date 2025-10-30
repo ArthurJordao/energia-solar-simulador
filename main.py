@@ -1,5 +1,25 @@
 import pandas as pd
 import argparse
+from collections import deque
+
+def calcular_parcela_price(valor_financiado, taxa_juros_mensal, num_parcelas):
+    """
+    Calcula o valor da parcela usando Tabela Price.
+
+    Args:
+        valor_financiado: Valor a ser financiado (R$)
+        taxa_juros_mensal: Taxa de juros mensal (decimal, ex: 0.01 = 1%)
+        num_parcelas: Número de parcelas
+
+    Returns:
+        Valor da parcela mensal
+    """
+    if taxa_juros_mensal == 0:
+        return valor_financiado / num_parcelas
+
+    return valor_financiado * (taxa_juros_mensal * (1 + taxa_juros_mensal)**num_parcelas) / \
+           ((1 + taxa_juros_mensal)**num_parcelas - 1)
+
 
 def simular_solar(
     tarifa_inicial=0.973,
@@ -7,7 +27,9 @@ def simular_solar(
     geracao_mensal_media=1346.64,
     consumo_mensal=1237.17,
     perc_autoconsumo=0.20,
-    valor_parcela=750,
+    valor_sistema=28000,
+    entrada=0,
+    taxa_juros_anual=0.10,
     meses_financiamento=72,
     anos_simulacao=10,
     reajuste_anual=0.10,
@@ -25,7 +47,9 @@ def simular_solar(
         geracao_mensal_media: Geração mensal média anual do sistema (kWh)
         consumo_mensal: Consumo mensal da residência (kWh)
         perc_autoconsumo: Percentual de autoconsumo instantâneo (0-1)
-        valor_parcela: Valor da parcela do financiamento (R$/mês)
+        valor_sistema: Valor total do sistema solar (R$)
+        entrada: Valor da entrada paga no início (R$)
+        taxa_juros_anual: Taxa de juros anual do financiamento (0-1)
         meses_financiamento: Duração do financiamento em meses
         anos_simulacao: Duração total da simulação em anos
         reajuste_anual: Taxa de reajuste anual da tarifa (0-1)
@@ -34,6 +58,10 @@ def simular_solar(
         ano_inicial: Ano inicial da simulação
         usar_sazonalidade: Se True, aplica variação sazonal típica de Florianópolis
     """
+    # Calcular valor financiado e parcela
+    valor_financiado = valor_sistema - entrada
+    taxa_juros_mensal = (1 + taxa_juros_anual) ** (1/12) - 1
+    valor_parcela = calcular_parcela_price(valor_financiado, taxa_juros_mensal, meses_financiamento) if valor_financiado > 0 else 0
     # Percentual de Fio B pago por ano (Lei 14.300/2022)
     pagamento_fioB = {
         2026: 0.60, 2027: 0.75, 2028: 0.90,
@@ -139,6 +167,9 @@ def simular_solar(
 
     df = pd.DataFrame(dados)
     df["Acumulado (R$)"] = df["Fluxo líquido (R$)"].cumsum()
+
+    # Calcular acumulado considerando a entrada paga no mês 1
+    df["Acumulado com entrada (R$)"] = df["Acumulado (R$)"] - entrada
 
     return df
 
