@@ -199,19 +199,15 @@ if 'df' in st.session_state:
         st.plotly_chart(fig3, use_container_width=True)
 
     with tab3:
+        st.markdown("### Exportar Dados")
         st.download_button(
             label="📥 Download CSV",
             data=df.to_csv(index=False).encode('utf-8-sig'),
             file_name="simulacao_solar.csv",
-            mime="text/csv"
+            mime="text/csv",
+            use_container_width=True
         )
-
-        st.download_button(
-            label="📥 Download Excel",
-            data=df.to_excel(index=False, engine='openpyxl'),
-            file_name="simulacao_solar.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        st.caption("💡 Baixe os dados completos da simulação em formato CSV (compatível com Excel, Google Sheets, etc.)")
 
 else:
     # Mensagem inicial
