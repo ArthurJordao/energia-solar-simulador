@@ -29,7 +29,7 @@ autoconsumo = st.sidebar.slider("Autoconsumo (%)", 0, 100, 20) / 100
 st.sidebar.subheader("💰 Financeiro")
 valor_sistema = st.sidebar.number_input("Valor do sistema (R$)", value=28000.0, step=1000.0, help="Valor total do sistema solar")
 entrada = st.sidebar.number_input("Entrada (R$)", value=0.0, step=1000.0, help="Valor pago à vista no início")
-taxa_juros_mensal = st.sidebar.slider("Taxa de juros (% a.m.)", 0.0, 5.0, 0.80, step=0.05, help="Taxa de juros mensal do financiamento") / 100
+taxa_juros_mensal = st.sidebar.slider("Taxa de juros (% a.m.)", 0.0, 5.0, 2.20, step=0.05, help="Taxa de juros mensal do financiamento") / 100
 meses_financ = st.sidebar.slider("Financiamento (meses)", 12, 180, 72, step=6)
 manutencao = st.sidebar.number_input("Manutenção anual (R$)", value=750.0, step=50.0)
 
@@ -41,7 +41,7 @@ st.sidebar.info(f"💵 **Valor financiado:** R$ {valor_financiado:,.2f}  \n📊 
 # Simulação
 st.sidebar.subheader("📊 Simulação")
 anos = st.sidebar.slider("Anos de simulação", 1, 25, 10)
-reajuste = st.sidebar.slider("Reajuste anual (%)", 0, 20, 8) / 100
+reajuste = st.sidebar.slider("Reajuste anual (%)", 0, 20, 10) / 100
 degradacao = st.sidebar.slider("Degradação anual (%)", 0.0, 2.0, 0.5, step=0.1) / 100
 sazonalidade = st.sidebar.checkbox("Usar sazonalidade (Florianópolis)", value=False)
 
