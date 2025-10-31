@@ -262,7 +262,43 @@ if 'df' in st.session_state:
         )
 
     with tab2:
+        # Gráfico de fluxo líquido mensal
+        st.subheader("💰 Fluxo Líquido Mensal")
+        fig_fluxo = go.Figure()
+
+        # Criar cores para barras (verde se positivo, vermelho se negativo)
+        cores = ['green' if x >= 0 else 'red' for x in df['Fluxo líquido (R$)']]
+
+        fig_fluxo.add_trace(go.Bar(
+            x=df['Mês'],
+            y=df['Fluxo líquido (R$)'],
+            name='Fluxo Líquido',
+            marker_color=cores,
+            opacity=0.7
+        ))
+
+        fig_fluxo.add_hline(y=0, line_dash="solid", line_color="black", opacity=0.3)
+
+        # Marcar fim do financiamento
+        if meses_financ < len(df):
+            fig_fluxo.add_vline(
+                x=meses_financ,
+                line_dash="dot",
+                line_color="purple",
+                opacity=0.5,
+                annotation_text="Fim financiamento"
+            )
+
+        fig_fluxo.update_layout(
+            xaxis_title="Mês",
+            yaxis_title="R$",
+            hovermode='x unified',
+            showlegend=False
+        )
+        st.plotly_chart(fig_fluxo, use_container_width=True)
+
         # Gráfico de geração vs consumo
+        st.subheader("⚡ Geração vs Consumo")
         fig2 = go.Figure()
         fig2.add_trace(go.Scatter(x=df['Mês'], y=df['Geração (kWh)'],
                                   name='Geração', line=dict(color='orange')))
@@ -271,10 +307,11 @@ if 'df' in st.session_state:
         if 'Saldo créditos (kWh)' in df.columns:
             fig2.add_trace(go.Scatter(x=df['Mês'], y=df['Saldo créditos (kWh)'],
                                      name='Saldo Créditos', line=dict(color='green', dash='dash')))
-        fig2.update_layout(title="Geração vs Consumo vs Créditos", xaxis_title="Mês", yaxis_title="kWh")
+        fig2.update_layout(xaxis_title="Mês", yaxis_title="kWh", hovermode='x unified')
         st.plotly_chart(fig2, use_container_width=True)
 
         # Gráfico de economia anual
+        st.subheader("📊 Economia vs Custos por Ano")
         df_anual = df.groupby('Ano').agg({
             'Economia (R$)': 'sum',
             'Parcela (R$)': 'sum',
@@ -291,7 +328,7 @@ if 'df' in st.session_state:
                              name='Manutenção', marker_color='orange'))
         fig3.add_trace(go.Bar(x=df_anual['Ano'], y=-df_anual['Compra rede (R$)'],
                              name='Compra Rede', marker_color='purple'))
-        fig3.update_layout(title="Economia vs Custos por Ano", xaxis_title="Ano", yaxis_title="R$", barmode='relative')
+        fig3.update_layout(xaxis_title="Ano", yaxis_title="R$", barmode='relative', hovermode='x unified')
         st.plotly_chart(fig3, use_container_width=True)
 
     with tab3:
